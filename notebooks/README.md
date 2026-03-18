@@ -357,7 +357,3 @@ jupyter notebook notebooks/periocular-final.ipynb
 
 For details on the model architectures, see [../docs/architecture.md](../docs/architecture.md).
 For dataset details, see [../docs/dataset.md](../docs/dataset.md).
-
----
-
-> **Old notebooks note:** The prior development repo (`Gender-and-age-identification`) contained 4 older notebooks: `Periocular_GC.ipynb` (Google Colab, ResNet-18 only), `periocular-gc-v2.ipynb` (early Kaggle version), `periage-resnet.ipynb` (age with ResNet-50), and `combined-model.ipynb` (PeriOcular only). All content has been consolidated into `periocular-final.ipynb`. Nothing was lost.
