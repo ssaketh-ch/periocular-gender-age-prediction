@@ -131,3 +131,61 @@ class PeriGender(nn.Module):
         out = self.avg_pool(out).squeeze()
         out = self.fc(self.dropout(out))
         return out
+
+
+class PeriGenderV2(nn.Module):
+    """
+    Improved gender model with learnable skip fusion and a stronger classifier head.
+    """
+
+    def __init__(self, num_classes=2):
+        super().__init__()
+        self.conv = nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1)
+        self.maxpool1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
+        self.skip1 = SkipConnection1(64, 64)
+        self.resblock1 = nn.Sequential(ResBlock(64, 64, stride=2), ResBlock(64, 128))
+
+        self.skip2 = SkipConnection2(128, 128)
+        self.resblock2 = nn.Sequential(ResBlock(128, 128, stride=2), ResBlock(128, 256))
+
+        self.skip3 = SkipConnection3(256, 256)
+        self.resblock3 = nn.Sequential(ResBlock(256, 256, stride=2), ResBlock(256, 512))
+
+        self.skip4 = SkipConnection4(512, 4)
+        self.maxpool2 = nn.MaxPool2d(kernel_size=(1, 2), stride=(1, 1))
+
+        self.fusion = nn.Sequential(
+            nn.Conv2d(524, 512, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+        )
+        self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.head = nn.Sequential(
+            nn.Flatten(),
+            nn.Dropout(p=0.35),
+            nn.Linear(512, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.25),
+            nn.Linear(256, num_classes),
+        )
+
+    def forward(self, x):
+        out = self.maxpool1(self.conv(x))
+
+        skip1 = self.skip1(out)
+        out = self.resblock1(out)
+
+        skip2 = self.skip2(out)
+        out = self.resblock2(out)
+
+        skip3 = self.skip3(out)
+        out = self.resblock3(out)
+
+        skip4 = self.skip4(out)
+        out = self.maxpool2(out)
+
+        out = torch.cat([skip1, skip2, skip3, skip4, out], dim=1)
+        out = self.fusion(out)
+        out = self.avg_pool(out)
+        return self.head(out)

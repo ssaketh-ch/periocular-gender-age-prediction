@@ -35,7 +35,17 @@ Thumbs.db
 
 # Logs
 *.log
-runs/
+runs/**
+!runs/
+!runs/README.md
+!runs/age/
+!runs/age/README.md
+!runs/age/periocular/
+!runs/age/periocular/README.md
+!runs/gender/
+!runs/gender/README.md
+!runs/gender/ubipr/
+!runs/gender/ubipr/README.md
 wandb/
 
 # Distribution / packaging

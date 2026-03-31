@@ -1,99 +1,79 @@
-# Results & Model Comparisons
+# Results and Figures
 
-All models trained on GPU (CUDA) with batch size 64 for 25–50 epochs on Kaggle.
+This file now summarizes the refreshed experiment set rather than the older notebook-era tables.
 
----
+## Current Best Results
 
-## Gender Classification
+### Gender on UBIPr
 
-**Dataset**: UBIPeriocular (balanced, 13168 train / 1020 test)  
-**Metric**: Test accuracy (correct gender predictions / total)
+| Model | Best Image Accuracy | Notes |
+|---|---:|---|
+| `ResNet18` | `0.9810` | Best overall gender result |
+| `ResNet34` | `0.9774` | Strong reference baseline |
+| `ResNet50` | `0.9693` | Larger backbone did not improve |
+| `PeriGenderV2` | `0.9711` | Best custom gender architecture |
 
-### Accuracy over 25 Epochs
+### Age on Strict Periocular UTKFace
 
-| Epoch | ResNet-18 | ResNet-34 | ResNet-50 | PeriGender |
-|-------|-----------|-----------|-----------|------------|
-| 1 | 81.5% | 96.3% | 94.1% | 84.6% |
-| 5 | 87.5% | 94.9% | 81.5% | 89.7% |
-| 10 | 90.2% | 94.7% | 89.8% | 90.2% |
-| 15 | 92.4% | 93.1% | 93.6% | 90.8% |
-| 20 | 93.4% | 94.7% | 87.8% | 91.8% |
-| 25 | 91.9% | 92.5% | 91.5% | 93.2% |
+| Model | Best Test Accuracy | Notes |
+|---|---:|---|
+| `PeriAgeResNet34` | `0.8668` | Best overall age result |
+| `ResNet34` | `0.8508` | Best plain baseline |
+| `ResNet18` | `0.8407` | Strong compact baseline |
+| `ResNet50` | `0.8158` | Bigger was not better |
+| `PeriAgeV2` | `0.7983` | Best scratch-style custom age model |
 
-**Training configuration**:
-- Optimizer: SGD, momentum=0.9, weight\_decay=0.01
-- lr: 0.01 (ResNet) / 0.0001 (PeriGender)
-- Loss: CrossEntropyLoss
+## Why These Numbers Matter
 
-**Key observations**:
-- ResNet-34 and ResNet-50 converge faster due to ImageNet pretraining
-- PeriGender catches up but shows more epoch-to-epoch variance
-- All models achieve >90% test accuracy by epoch 15–20
+The refreshed repo is stricter and more faithful to the project goal than the original workflow:
 
----
+- age now uses periocular-only crops rather than full-face images
+- gender now uses subject-level splitting on UBIPr
+- runs are stored with timestamped metrics and checkpoints
 
-## Age Classification
+That makes the current numbers much more reproducible and easier to trust.
 
-**Dataset**: UTKFace (10 age-decade buckets)  
-**Metric**: Test accuracy (correct age-bucket / total)
+## Generated Figures
 
-### Accuracy over ~27 Epochs
+The report figure generator writes plots under:
 
-| Epoch | ResNet-18 | ResNet-34 | ResNet-50 | PeriAge |
-|-------|-----------|-----------|-----------|---------|
-| 1 | 54.7% | 55.6% | 55.0% | 56.8% |
-| 5 | 59.7% | 60.8% | 58.5% | 40.2% |
-| 10 | 58.5% | 59.8% | 60.1% | 57.2% |
-| 15 | 57.7% | 58.4% | 60.1% | 46.6% |
-| 20 | 58.6% | 58.6% | 59.2% | 49.2% |
-| 27 | 57.9% | 58.9% | 58.5% | 50.0% |
+- `results/figures/gender/`
+- `results/figures/age/`
 
-**Training configuration**:
-- Optimizer: SGD, momentum=0.9
-- lr: 0.001
-- Loss: CrossEntropyLoss
+Use:
 
-**Key observations**:
-- Age prediction is significantly harder than gender — even ResNet plateaus ~60%
-- PeriAge shows high variance across epochs, suggesting the architecture needs further tuning for age
-- The decade-bucket formulation collapses fine-grained age information
+```bash
+python scripts/generate_report_artifacts.py
+```
 
----
+### Age
 
-## Combined PeriOcular (Gender + Age)
+![Age best accuracy](./figures/age/age_best_accuracy.png)
 
-**Metric**: Test accuracy where **both** gender AND age must be correct
+![Age accuracy curves](./figures/age/age_accuracy_curves.png)
 
-| Epoch | PeriOcular |
-|-------|-----------|
-| 1 | 16.4% |
-| 5 | 28.2% |
-| 10 | 30.5% |
-| 15 | 31.5% |
-| 20 | 33.1% |
-| 25 | 32.9% |
+### Gender
 
-**Training configuration**:
-- Optimizer: Adam, lr=0.01
-- Loss: `CrossEntropy(gender) + CrossEntropy(age)`
+![Gender best accuracy](./figures/gender/gender_best_accuracy.png)
 
-**Key observations**:
-- Combined accuracy is lower because it requires both tasks to be simultaneously correct
-- Steady improvement through 25 epochs
-- The architecture successfully learns both tasks jointly from a single backbone
+![Gender accuracy curves](./figures/gender/gender_accuracy_curves.png)
 
----
+![Gender confusion: ResNet18](./figures/gender/resnet18_confusion.png)
 
-## Summary Table
+![Gender confusion: ResNet34](./figures/gender/resnet34_confusion.png)
 
-| Model | Task | Best Acc | Epochs |
-|-------|------|----------|--------|
-| ResNet-18 | Gender | 93.4% | 25 |
-| ResNet-34 | Gender | 96.8% | 1 |
-| ResNet-50 | Gender | 96.9% | 4 |
-| PeriGender | Gender | 93.2% | 23 |
-| ResNet-18 | Age | 60.1% | 9 |
-| ResNet-34 | Age | 60.8% | 5 |
-| ResNet-50 | Age | 60.6% | 16 |
-| PeriAge | Age | 57.2% | 11 |
-| PeriOcular | Gender+Age | 33.4% | 19 |
+![Gender confusion: PeriGenderV2](./figures/gender/perigender_v2_confusion.png)
+
+## Canonical Runs Used For Repo Reporting
+
+### Gender
+
+- baseline: `runs/gender/ubipr/baselines/resnet18_e30/20260330_212202`
+- baseline reference: `runs/gender/ubipr/baselines/resnet34_e30/20260330_214519`
+- custom: `runs/gender/ubipr/custom/perigender_v2_adamw/20260331_004845`
+
+### Age
+
+- baseline: `runs/age/periocular/baselines/resnet34/20260330_151158`
+- custom v2: `runs/age/periocular/custom/periage_v2_bs32/20260330_174946`
+- hybrid best: `runs/age/periocular/hybrid/periage_resnet34_ft/20260330_202332`

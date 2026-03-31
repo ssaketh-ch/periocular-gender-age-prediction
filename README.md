@@ -1,205 +1,218 @@
+# Periocular Gender and Age Prediction
 
-# Periocular Region Gender & Age Prediction
+This repository contains the refreshed CLI-first version of an older undergraduate periocular biometrics project. The original notebook-driven work has now been reproduced, tightened up, and improved with cleaner data handling, stronger baselines, stricter evaluation, and better custom model variants.
 
-This repository contains the code and documentation for an **undergraduate research project** on gender and age prediction from periocular images, inspired by the work of Hussain et al. (2023) — ["Unconstrained Gender Recognition from Periocular Region Using Multiscale Deep Features"](https://www.techscience.com/iasc/v35n3/49392/html).
+## New Results First
 
-A deep learning project that predicts **gender** and **age** from periocular images — the region surrounding the eye within the orbit. This biometrically rich area has shown strong performance in deep learning classification tasks, especially in unconstrained environments where the face may be partially occluded.
+The strongest results in the refreshed workflow are:
 
----
+| Task | Best Model | Best Result | Notes |
+|---|---|---:|---|
+| UBIPr gender | `ResNet18` | `98.10%` image accuracy | subject-level split, no identity leakage |
+| UBIPr gender, custom | `PeriGenderV2` | `97.11%` image accuracy | best custom gender model |
+| UTKFace periocular age | `PeriAgeResNet34` | `86.68%` test accuracy | strict periocular-only age pipeline |
+| UTKFace periocular age baseline | `ResNet34` | `85.08%` test accuracy | strongest plain age baseline |
 
-## Overview
+The most important improvements over the old version are:
 
-This project implements and benchmarks multiple CNN architectures for two classification tasks:
+- the project can now be run end to end from the CLI
+- periocular age experiments now use actual periocular crops instead of full-face images
+- UBIPr gender is now split by subject rather than by image
+- custom v2 and hybrid models were added to make the periocular-specific architectures more competitive
 
-| Task | Output | Classes |
-|------|--------|---------|
-| Gender Classification | Male / Female | 2 |
-| Age Classification | Age range (decade buckets) | 10 |
+## What This Project Does
 
-Both tasks are ultimately unified into a **single multi-task model** (`PeriOcular`) that predicts gender and age simultaneously.
+The project studies whether the periocular region alone, the area around the eye, contains enough information for:
 
----
+- gender classification
+- age-bucket classification
+- eventually joint multitask prediction
 
-## Models
+The repo currently has three families of models:
 
-### Baseline — Pretrained ResNets (Transfer Learning)
-Fine-tuned ImageNet-pretrained weights on the periocular dataset:
-- **ResNet-18**
-- **ResNet-34**
-- **ResNet-50**
+- pretrained ResNet baselines
+- custom multiscale periocular models
+- hybrid models that combine pretrained backbones with periocular-specific fusion
 
+## Repository Guide
 
-### Custom — PeriGender
-A custom residual architecture inspired by the paper:
-> *"Unconstrained Gender Recognition from Periocular Region Using Multiscale Deep Features"*  
-> ([Paper PDF](https://file.techscience.com/ueditor/files/iasc/TSP_IASC-35-3/TSP_IASC_30036/TSP_IASC_30036.pdf))
+- [CLI Workflow](docs/cli_workflow.md)
+  End-to-end command-line setup, data prep, training, and inference.
+- [Scripts](scripts/README.md)
+  What each CLI script does.
+- [Experiment Runs](runs/README.md)
+  Organized run folders and canonical checkpoints.
+- [Age Experiments](runs/age/README.md)
+  Detailed interpretation of the periocular age work.
+- [Gender Experiments](runs/gender/README.md)
+  Detailed interpretation of the UBIPr gender work.
+- [Custom Model Families](docs/custom_models/README.md)
+  Technical notes for the v1, v2, and hybrid architectures.
+- [Architecture Notes](docs/architecture.md)
+  High-level architecture context from the original project.
+- [Dataset Notes](docs/dataset.md)
+  Background on the datasets and preprocessing assumptions.
 
-Architecture: `Conv → MaxPool → 4× [SkipConnection + ResBlock pairs] → AdaptiveAvgPool → FC(2)`
+## CLI Quick Start
 
-See [docs/architecture.md](docs/architecture.md) for a detailed breakdown and [figures/](figures/) for architecture diagrams from the original paper.
-
-### Custom — PeriAge
-A modified PeriGender model adapted for 10-class age-range prediction, with an added `Upsample` layer to handle spatial dimension matching.
-
-### Custom — PeriOcular (Multi-Task)
-Combines PeriGender and PeriAge into a single shared-backbone model with **two output heads**:
-- `fc` → 2 classes (gender)
-- `fc2` → 10 classes (age range)
-
----
-
-## Results
-
-### Gender Classification (Test Accuracy)
-
-| Model | Best Test Acc |
-|-------|--------------|
-| ResNet-18 | ~93.4% |
-| ResNet-34 | ~96.8% |
-| ResNet-50 | ~96.9% |
-| PeriGender | ~93.2% |
-
-### Age Classification (Test Accuracy)
-
-| Model | Best Test Acc |
-|-------|--------------|
-| ResNet-18 | ~60.1% |
-| ResNet-34 | ~60.8% |
-| ResNet-50 | ~60.6% |
-| PeriAge | ~57.2% |
-
-### Combined PeriOcular (Gender + Age, Test Accuracy)
-
-| Model | Best Test Acc |
-|-------|--------------|
-| PeriOcular | ~32.7% |
-
-> Note: The combined accuracy requires *both* gender and age to be correct simultaneously, so lower values are expected.
-
-See [`results/`](results/) for accuracy-vs-epoch plots and tables.
-
----
-
-## Dataset
-
-- **Gender**: [UBIPeriocular Dataset](https://ubilab-security.github.io/) — images organized into `male/` and `female/` class folders.
-- **Age**: [UTKFace Dataset](https://susanqq.github.io/UTKFace/) — filenames encode age, gender, race labels.
-
-### Dataset Statistics (after balancing)
-| Split | Male | Female | Total |
-|-------|------|--------|-------|
-| Train | 6584 | 6584\* | 13168 |
-| Test | 709 | 311 | 1020 |
-
-\*Female images were augmented to balance the dataset.
-
-
-### Preprocessing & Augmentation
-- **Face normalization**: Align faces using eye center coordinates (see [docs/architecture.md](docs/architecture.md) and original paper, Fig. 4)
-- **Periocular region extraction**: Crop ROI using empirically determined bounds (see Fig. 5)
-- **Resize**: `224×112` (gender/multi-task) or `224×224` (age)
-- **Label extraction**: Gender from UBIPeriocular `.txt` files (7th line), age from UTKFace filename
-- **Class balancing**: Augment minority class (female) to match male samples
-- **Augmentation**: Random horizontal flip, invert, solarize, crop
-- **Normalize**: `mean=[0.5, 0.5, 0.5]`, `std=[0.5, 0.5, 0.5]`
-
----
-
-
-## Project Report
-
-The full project report, detailing methodology, experiments, results, and discussion, is available here:
-
-**[Periocular Gender & Age Prediction Project Report (PDF)](./Periocular_Gender_Age_Project_Report.pdf)**
-
-This document provides a comprehensive overview of the research, including background, dataset details, model architectures, training procedures, results, and analysis.
-
----
-
-## Project Structure
-
-```
-periocular-gender-age-prediction/
-├── notebooks/
-│   └── periocular-final.ipynb    # Full training & evaluation notebook
-├── models/
-│   ├── perigender.py             # PeriGender architecture
-│   ├── periage.py                # PeriAge architecture
-│   └── periocular.py             # PeriOcular multi-task architecture
-├── docs/
-│   ├── architecture.md           # Detailed model architecture notes
-│   └── dataset.md                # Dataset description & preprocessing
-├── results/
-│   └── accuracy_plots.md         # Accuracy results and comparisons
-├── figures/                      # Architecture diagrams (see README inside)
-├── requirements.txt
-└── README.md
-```
-
----
-
-## Installation
+### 1. Clone and create an environment
 
 ```bash
 git clone https://github.com/ssaketh-ch/periocular-gender-age-prediction.git
 cd periocular-gender-age-prediction
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
----
+### 2. Download the datasets
 
-## Usage
+For UTKFace, the repo supports Kaggle CLI download:
 
-Open the notebook to run the full pipeline:
+```bash
+mkdir -p ~/.kaggle
+# place kaggle.json in ~/.kaggle/kaggle.json
+chmod 600 ~/.kaggle/kaggle.json
+
+mkdir -p data/raw/utkface
+kaggle datasets download -d jangedoo/utkface-new -p data/raw/utkface
+unzip data/raw/utkface/utkface-new.zip -d data/raw/utkface
+```
+
+For UBIPr, download the official archive and extract it into `data/raw/ubipr/`.
+
+### 3. Prepare the periocular datasets
+
+Gender on UBIPr:
+
+```bash
+python scripts/prepare_ubipr_gender.py \
+  --raw-dir data/raw/ubipr/UBIPeriocular \
+  --output-dir data/processed/ubipr_gender \
+  --test-size 0.10 \
+  --seed 42 \
+  --balance-train \
+  --split-by-subject
+```
+
+Age on UTKFace:
+
+```bash
+python scripts/extract_utkface_periocular.py \
+  --raw-dir data/raw/utkface \
+  --output-dir data/processed/utkface_periocular_raw \
+  --strict
+
+python scripts/prepare_utkface_age.py \
+  --raw-dir data/processed/utkface_periocular_raw \
+  --output-dir data/processed/utkface_age \
+  --test-size 0.20 \
+  --seed 42
+```
+
+### 4. Run the main sweeps
+
+Age sweep:
+
+```bash
+bash run_age_baselines.sh
+```
+
+Gender sweep:
+
+```bash
+bash run_gender_baselines.sh
+```
+
+If you are on Slurm, both sweep scripts are `sbatch`-ready:
+
+```bash
+sbatch run_age_baselines.sh
+sbatch run_gender_baselines.sh
+```
+
+### 5. Compare finished runs
+
+```bash
+python scripts/compare_runs.py --runs-dir runs/age/periocular
+python scripts/compare_runs.py --runs-dir runs/gender/ubipr
+```
+
+### 6. Run inference from a saved checkpoint
+
+```bash
+python scripts/predict.py \
+  --checkpoint runs/age/periocular/hybrid/periage_resnet34_ft/20260330_202332/best.pt \
+  --image /absolute/path/to/image.jpg \
+  --device cpu
+```
+
+## Current Model Story
+
+### Gender
+
+On UBIPr, transfer learning remains very strong. `ResNet18` produced the best overall gender result, while `PeriGenderV2` became the strongest custom periocular model. The current gender pipeline is much more reliable than the older notebook version because:
+
+- labels are read directly from the paired metadata files
+- the split is performed by subject, not by image
+- subject-level evaluation was explicitly checked
+
+### Age
+
+Age prediction is the harder problem. Once the project was converted to strict periocular crops, the task became more faithful to the original goal and the numbers became more realistic. Plain `ResNet34` remained a strong baseline, but the hybrid `PeriAgeResNet34` fine-tune ultimately became the best model in the repo.
+
+## Figures
+
+The repo can generate comparison plots and confusion matrices from the saved run artifacts:
+
+```bash
+python scripts/generate_report_artifacts.py
+```
+
+Generated outputs are written under `results/figures/`.
+
+## Custom Models
+
+The custom architecture documentation is split by family:
+
+- [PeriGender Family](docs/custom_models/perigender/README.md)
+- [PeriAge Family](docs/custom_models/periage/README.md)
+
+These docs explain:
+
+- the original v1 scratch models
+- the v2 fusion upgrades
+- the age hybrid that combines a pretrained backbone with periocular-specific multiscale fusion
+
+## Notebook Usage
+
+The repo now treats the CLI workflow as the primary interface.
+
+If you still want to explore the project interactively, the notebook remains available:
 
 ```bash
 jupyter notebook notebooks/periocular-final.ipynb
 ```
 
-Or to use a saved model for inference:
+The recommended order is:
 
-```python
-from models.perigender import PeriGender
-import torch
-from PIL import Image
-from torchvision import transforms
-
-model = PeriGender()
-model.load_state_dict(torch.load('perigender_v2.pth'))
-model.eval()
-
-transform = transforms.Compose([
-    transforms.Resize((224, 112)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-])
-
-image = Image.open('your_image.jpg')
-tensor = transform(image).unsqueeze(0)
-output = model(tensor)
-predicted = torch.argmax(output).item()
-print(['female', 'male'][predicted])
-```
-
----
-
-## Requirements
-
-See [`requirements.txt`](requirements.txt)
-
----
-
+1. run the CLI pipeline first
+2. use the notebook afterward for exploration or presentation
 
 ## References
 
-- [Unconstrained Gender Recognition from Periocular Region Using Multiscale Deep Features](https://file.techscience.com/ueditor/files/iasc/TSP_IASC-35-3/TSP_IASC_30036/TSP_IASC_30036.pdf)
-- [Periocular Gender & Age Prediction Project Report (PDF)](./Periocular_Gender_Age_Project_Report.pdf)
-- [UBIPeriocular Dataset](https://ubilab-security.github.io/)
-- [UTKFace Dataset](https://susanqq.github.io/UTKFace/)
-- [Deep Residual Learning for Image Recognition (He et al.)](https://arxiv.org/abs/1512.03385)
+- Hussain, M., Alrabiah, R., & AboAlSamh, H. A. (2023). *Unconstrained Gender Recognition from Periocular Region Using Multiscale Deep Features*. Intelligent Automation & Soft Computing, 35(3), 2941-2962.
+- Chandrashekhar Padole, Hugo Proenca. *Periocular Recognition: Analysis of Performance Degradation Factors*. Proceedings of the Fifth IAPR/IEEE International Conference on Biometrics, ICB 2012, New Delhi, India, March 30-April 1, 2012.
+- He, K., Zhang, X., Ren, S., & Sun, J. (2015). *Deep Residual Learning for Image Recognition*.
+- [Project Report PDF](Periocular_Gender_Age_Project_Report.pdf)
 
----
+## Original Results From The Older Work
 
-## Author
+The original notebook-era project reported approximately:
 
-**Sai Saketh Cherukuri**
+- gender: `93-97%` depending on backbone
+- age: `57-61%`
+- multitask joint accuracy: `~32.7%`
+
+Those numbers were useful as the starting point for the project, but the refreshed workflow is more trustworthy because it fixes evaluation issues, makes the periocular extraction explicit, and records the full training history for each experiment.
